@@ -32,6 +32,8 @@ export async function POST(req: Request) {
             }
         }
 
+        console.log("Final payload being sent to Zapier:", payload);
+
         // Node.js server fetch natively bypassing CORS
         const response = await fetch('https://hooks.zapier.com/hooks/catch/24716706/ux25i31/', {
             method: 'POST',

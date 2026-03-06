@@ -106,6 +106,8 @@ export default function StartPost() {
                 pillar: selectedPillar
             };
 
+            console.log("Submitting payload to proxy:", payloadData);
+
             const response = await fetch('/api/zapier', {
                 method: 'POST',
                 headers: {
