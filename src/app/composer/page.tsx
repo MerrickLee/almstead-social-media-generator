@@ -85,28 +85,33 @@ export default function StartPost() {
     const handleFinish = async () => {
         setIsGenerating(true);
         try {
-            let base64Image = media?.url;
+            let finalImageUrl = media?.url;
 
-            // Convert local Blob object to Base64 String so Zapier can ingest the raw image data over JSON
+            // Wait for FileReader completely
             if (media?.file) {
-                base64Image = await new Promise<string>((resolve, reject) => {
+                finalImageUrl = await new Promise<string>((resolve, reject) => {
                     const reader = new FileReader();
-                    reader.onloadend = () => resolve(reader.result as string);
-                    reader.onerror = () => reject(new Error("Failed to read file"));
+                    reader.onloadend = () => {
+                        const base64data = reader.result as string;
+                        resolve(base64data);
+                    };
+                    reader.onerror = reject;
                     reader.readAsDataURL(media.file!);
                 });
             }
+
+            const payloadData = {
+                text: customCaption,
+                imageUrl: finalImageUrl,
+                pillar: selectedPillar
+            };
 
             const response = await fetch('/api/zapier', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    text: customCaption,
-                    imageUrl: base64Image,
-                    pillar: selectedPillar
-                })
+                body: JSON.stringify(payloadData)
             });
 
             if (!response.ok) {

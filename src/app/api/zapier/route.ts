@@ -4,11 +4,12 @@ export async function POST(req: Request) {
     try {
         const payload = await req.json();
 
-        // Node.js server fetch inherently bypasses all browser CORS restrictions
+        // Node.js server fetch natively bypassing CORS
         const response = await fetch('https://hooks.zapier.com/hooks/catch/24716706/ux25i31/', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
             body: JSON.stringify(payload)
         });
