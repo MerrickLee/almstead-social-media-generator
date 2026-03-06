@@ -42,7 +42,7 @@ export default function StartPost() {
     const [step, setStep] = useState<number>(1);
 
     // Step 1 State
-    const [media, setMedia] = useState<{ type: 'upload' | 'google', url: string, name: string } | null>(null);
+    const [media, setMedia] = useState<{ type: 'upload' | 'google', url: string, name: string, file?: File } | null>(null);
 
     // Step 2 State
     const [selectedPillar, setSelectedPillar] = useState<string | null>(null);
@@ -63,7 +63,8 @@ export default function StartPost() {
         setMedia({
             type: 'upload',
             url: URL.createObjectURL(files[0]),
-            name: files[0].name
+            name: files[0].name,
+            file: files[0]
         });
         setStep(2);
     };
@@ -84,6 +85,18 @@ export default function StartPost() {
     const handleFinish = async () => {
         setIsGenerating(true);
         try {
+            let base64Image = media?.url;
+
+            // Convert local Blob object to Base64 String so Zapier can ingest the raw image data over JSON
+            if (media?.file) {
+                base64Image = await new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result as string);
+                    reader.onerror = () => reject(new Error("Failed to read file"));
+                    reader.readAsDataURL(media.file!);
+                });
+            }
+
             const response = await fetch('/api/zapier', {
                 method: 'POST',
                 headers: {
@@ -91,7 +104,7 @@ export default function StartPost() {
                 },
                 body: JSON.stringify({
                     text: customCaption,
-                    imageUrl: media?.url,
+                    imageUrl: base64Image,
                     pillar: selectedPillar
                 })
             });
