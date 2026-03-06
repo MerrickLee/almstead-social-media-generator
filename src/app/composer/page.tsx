@@ -1,0 +1,295 @@
+"use client";
+
+import { useState, useRef } from "react";
+import { Sparkles, Leaf, CloudRain, Smile, Users, Image as ImageIcon, Upload, ArrowRight, CheckCircle2, Wand2, PenTool } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
+
+const pillars = [
+    { id: "science", name: "Science of Landscapes", icon: Leaf },
+    { id: "conditions", name: "Current Conditions", icon: CloudRain },
+    { id: "customers", name: "Happy Customers", icon: Smile },
+    { id: "employees", name: "Employee Spotlights", icon: Users },
+];
+
+const mockAIGenerations: Record<string, string[]> = {
+    science: [
+        "Why February Pruning Matters ❄️🌿\n\nDormant season pruning improves structural integrity and reduces disease risk. Our ISA-certified arborists know exactly how to assess your canopy before the spring flush. Schedule your winter assessment today to ensure a healthy season!\n\n#ScienceOfLandscapes #CertifiedArborist #PlantHealthCare #Almstead",
+        "Did you know tree roots continue to grow even when the canopy is dormant? 🌱 Winter is the perfect time for soil decompaction and root collar excavations. Secure the long-term health of your historic trees with Almstead's advanced soil science team.\n\n#ScienceOfLandscapes #RootHealth",
+        "Preserving mature trees requires more than just water and sunlight. Our tailored nutrient management programs provide essential micro-nutrients specifically formulated for the tri-state area. Ask us about our organic compost teas! 🌳🧪\n\n#PlantScience #Almstead #TreeCare"
+    ],
+    conditions: [
+        "⚠️ Winter Storm Warning ⚠️\n\nHeavy snowfall and ice accumulation are expected this weekend. Heavy ice loads can cause significant branch failure. Stay safe and keep clear of large limbs. If you experience storm damage, Almstead's emergency response team is ready to help 24/7.\n\n#CurrentConditions #StormPrep #Almstead#TreeCare",
+        "Spring is arriving early! 🌷 With warmer temperatures approaching, it's time to start thinking about pest management. We are currently monitoring for overwintering specific pests in the area. Contact your Almstead arborist for a preventative inspection.\n\n#SpringPrep #PlantHealthCare #CurrentConditions",
+        "Drought stress from last summer may still be affecting your hemlocks and rhododendrons. 🍂 Even in winter, anti-desiccant sprays can protect evergreens from harsh winter winds that cause leaf burn. Reach out today for an evaluation.\n\n#WinterCare #Arborist"
+    ],
+    customers: [
+        "Another beautiful property transformation in the books! 🏡✨ Look at the amazing difference our plant health care team made for this historic estate. There is nothing more rewarding than seeing our clients fall back in love with their landscapes.\n\n#HappyCustomers #Landscaping #AlmsteadTree",
+        "\"The Almstead crew was incredibly professional and left our property cleaner than they found it!\" 🌟\n\nThank you to our amazing clients for trusting us with your most valuable natural assets. Swipe to see the precision pruning work completed today!\n\n#CustomerTestimonial #TreeService #Excellence",
+        "We love getting to watch the gardens we care for thrive year after year! 🌺 Here’s a snapshot from a satisfied customer's beautiful backyard oasis, maintained by our customized ornamental care program.\n\n#HappyCustomers #GardenCare #Almstead"
+    ],
+    employees: [
+        "👷‍♂️ Employee Spotlight: Meet John! 👷‍♂️\n\nJohn is one of our ISA Certified Arborists and has been with Almstead for over 10 years. His expertise in diagnostic pathology makes him an invaluable part of our team. When he's not inspecting trees, he's volunteering at the local arboretum.\n\n#EmployeeSpotlight #TeamAlmstead #Arborist",
+        "Safety first, always! 🧗‍♀️ Huge shoutout to our climbing crews who navigate challenging canopies every day with precision and care. They are the true athletes of the industry. Thank you for your hard work!\n\n#TreeClimber #TreeCareIndustry #EmployeeSpotlight",
+        "Congratulations to Sarah from our Plant Health Care division on receiving her state pesticide applicator license! 🎓🌿 We are so proud of our team's commitment to continuing education and environmental safety.\n\n#TeamAlmstead #CareerGrowth #PHC"
+    ]
+};
+
+export default function StartPost() {
+    const router = useRouter();
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const [step, setStep] = useState<number>(1);
+
+    // Step 1 State
+    const [media, setMedia] = useState<{ type: 'upload' | 'google', url: string, name: string } | null>(null);
+
+    // Step 2 State
+    const [selectedPillar, setSelectedPillar] = useState<string | null>(null);
+
+    // Step 3 State
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [generatedOptions, setGeneratedOptions] = useState<string[]>([]);
+    const [customCaption, setCustomCaption] = useState<string>("");
+
+    const handleUploadClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        setMedia({
+            type: 'upload',
+            url: URL.createObjectURL(files[0]),
+            name: files[0].name
+        });
+        setStep(2);
+    };
+
+    const handleGenerate = () => {
+        if (!selectedPillar) return;
+        setIsGenerating(true);
+        setTimeout(() => {
+            setGeneratedOptions(mockAIGenerations[selectedPillar] || []);
+            setIsGenerating(false);
+        }, 1500);
+    };
+
+    const selectOption = (text: string) => {
+        setCustomCaption(text);
+    };
+
+    const handleFinish = async () => {
+        setIsGenerating(true);
+        try {
+            await fetch('https://hooks.zapier.com/hooks/catch/24716706/ux25i31/', {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    text: customCaption,
+                    imageUrl: media?.url,
+                    pillar: selectedPillar
+                })
+            });
+            alert("Sent for Approval!");
+            router.push('/media');
+        } catch (error) {
+            console.error(error);
+            alert("Failed to submit to Zapier");
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    return (
+        <div className="space-y-8 max-w-4xl mx-auto py-4">
+            <div className="text-center space-y-2">
+                <h2 className="text-3xl font-bold tracking-tight text-foreground flex justify-center items-center gap-3">
+                    <PenTool className="h-8 w-8 text-primary" /> Start New Post
+                </h2>
+                <p className="text-muted-foreground">Follow the steps below to generate an Almstead-branded social media post.</p>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="flex items-center justify-center gap-2 mb-8">
+                <div className={cn("px-4 py-2 rounded-full text-sm font-semibold transition-colors", step >= 1 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
+                    1. Media
+                </div>
+                <div className="h-0.5 w-12 bg-border">
+                    <div className={cn("h-full bg-primary transition-all", step >= 2 ? "w-full" : "w-0")}></div>
+                </div>
+                <div className={cn("px-4 py-2 rounded-full text-sm font-semibold transition-colors", step >= 2 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
+                    2. Pillar
+                </div>
+                <div className="h-0.5 w-12 bg-border">
+                    <div className={cn("h-full bg-primary transition-all", step >= 3 ? "w-full" : "w-0")}></div>
+                </div>
+                <div className={cn("px-4 py-2 rounded-full text-sm font-semibold transition-colors", step >= 3 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
+                    3. AI Caption
+                </div>
+            </div>
+
+            {/* Step 1: Media Selection */}
+            {step === 1 && (
+                <div className="rounded-xl border border-border bg-card shadow-sm p-8 text-center space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                    <div>
+                        <h3 className="text-xl font-bold mb-2">Select Visual Content</h3>
+                        <p className="text-muted-foreground text-sm">Every great post starts with a photo or video. Upload an image or select directly from our shared albums.</p>
+                    </div>
+
+                    <div className="grid sm:grid-cols-1 gap-4 max-w-2xl mx-auto">
+
+                        <button
+                            onClick={handleUploadClick}
+                            className="flex flex-col items-center justify-center p-8 rounded-xl border-2 border-dashed hover:border-primary hover:bg-primary/5 transition-colors gap-4"
+                        >
+                            <div className="p-4 rounded-full bg-green-100 text-green-600">
+                                <Upload className="h-8 w-8" />
+                            </div>
+                            <div>
+                                <h4 className="font-bold">Upload Local Media</h4>
+                                <p className="text-xs text-muted-foreground mt-1">Select files from your computer or phone</p>
+                            </div>
+                        </button>
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={handleFileChange}
+                            className="hidden"
+                            accept="image/*,video/*"
+                        />
+                    </div>
+                </div>
+            )}
+
+            {/* Step 2: Content Pillar */}
+            {step === 2 && (
+                <div className="rounded-xl border border-border bg-card shadow-sm p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4">
+
+                    <div className="flex items-center gap-4 p-4 rounded-lg bg-muted/50 border">
+                        <div className="h-16 w-16 bg-card rounded border flex items-center justify-center shrink-0">
+                            {media?.type === 'upload' ? (
+                                <img src={media.url} alt="Upload Preview" className="h-full w-full object-cover rounded" />
+                            ) : (
+                                <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                            )}
+                        </div>
+                        <div className="flex-1 overflow-hidden">
+                            <p className="font-medium truncate">{media?.name}</p>
+                            <p className="text-xs text-muted-foreground uppercase">{media?.type} media selected</p>
+                        </div>
+                        <button onClick={() => setStep(1)} className="text-sm text-primary font-medium hover:underline">Change</button>
+                    </div>
+
+                    <div className="text-center">
+                        <h3 className="text-xl font-bold mb-2">Choose Content Pillar</h3>
+                        <p className="text-muted-foreground text-sm">Which brand pillar does this content represent?</p>
+                    </div>
+
+                    <div className="grid sm:grid-cols-2 gap-4">
+                        {pillars.map((p) => {
+                            const isSelected = selectedPillar === p.id;
+                            return (
+                                <button
+                                    key={p.id}
+                                    onClick={() => setSelectedPillar(p.id)}
+                                    className={cn(
+                                        "flex flex-col items-start gap-3 p-6 rounded-xl border-2 transition-all text-left",
+                                        isSelected
+                                            ? "border-primary bg-primary/5 shadow-md"
+                                            : "border-border bg-card hover:bg-muted"
+                                    )}
+                                >
+                                    <div className={cn("p-2 rounded-lg", isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
+                                        <p.icon className="h-5 w-5" />
+                                    </div>
+                                    <span className="font-bold">{p.name}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    <div className="flex justify-end pt-4">
+                        <button
+                            disabled={!selectedPillar}
+                            onClick={() => {
+                                setStep(3);
+                                handleGenerate();
+                            }}
+                            className="inline-flex items-center justify-center rounded-md text-sm font-bold transition-colors bg-primary text-primary-foreground shadow hover:bg-primary/90 h-11 px-8 disabled:opacity-50"
+                        >
+                            Next: Generate Post <ArrowRight className="ml-2 h-4 w-4" />
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Step 3: AI Generation & Review */}
+            {step === 3 && (
+                <div className="rounded-xl border border-border bg-card shadow-sm p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4">
+                    <div className="text-center">
+                        <h3 className="text-xl font-bold mb-2">AI Post Generation</h3>
+                        <p className="text-muted-foreground text-sm">Review the generated ideas, select one to customize, or write your own.</p>
+                    </div>
+
+                    {isGenerating ? (
+                        <div className="flex flex-col items-center justify-center p-12 text-center text-muted-foreground space-y-4 rounded-xl bg-muted/20 border border-dashed">
+                            <Wand2 className="h-8 w-8 animate-bounce text-primary" />
+                            <p className="font-medium animate-pulse">Analyzing media and drafting content...</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-6">
+                            <div className="grid md:grid-cols-3 gap-4">
+                                {generatedOptions.map((opt, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => selectOption(opt)}
+                                        className="text-left p-4 rounded-xl border border-border hover:border-primary hover:shadow-md transition-all text-sm flex flex-col items-start gap-2 bg-card"
+                                    >
+                                        <span className="text-xs font-bold uppercase text-primary mb-1 inline-block">Option {i + 1}</span>
+                                        <span className="line-clamp-6">{opt}</span>
+                                        <span className="text-primary text-xs font-semibold mt-auto pt-2 hover:underline">Use this draft →</span>
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="space-y-3 pt-4 border-t">
+                                <label className="font-bold flex items-center justify-between">
+                                    Final Caption
+                                    <span className="text-xs font-normal text-muted-foreground">Edit generated text or write your own</span>
+                                </label>
+                                <textarea
+                                    className="w-full min-h-[150px] p-4 rounded-xl border border-input bg-background resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
+                                    placeholder="Your post caption..."
+                                    value={customCaption}
+                                    onChange={(e) => setCustomCaption(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="flex justify-between items-center pt-4">
+                                <button onClick={() => setStep(2)} className="text-sm text-muted-foreground hover:text-foreground font-medium">
+                                    ← Back
+                                </button>
+
+                                <button
+                                    onClick={handleFinish}
+                                    className="inline-flex items-center justify-center rounded-md text-sm font-bold transition-colors bg-primary text-primary-foreground shadow hover:bg-primary/90 h-11 px-8"
+                                >
+                                    <CheckCircle2 className="mr-2 h-5 w-5" /> Send for Approval
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+
+
