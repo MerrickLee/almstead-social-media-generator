@@ -12,6 +12,8 @@ const manrope = Manrope({
   subsets: ["latin"],
 });
 
+export const dynamic = 'force-dynamic';
+
 import { AppShell } from "@/components/layout/shell";
 
 export const metadata: Metadata = {
