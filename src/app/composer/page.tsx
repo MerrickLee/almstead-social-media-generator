@@ -42,7 +42,7 @@ export default function StartPost() {
     const [step, setStep] = useState<number>(1);
 
     // Step 1 State
-    const [media, setMedia] = useState<{ type: 'upload' | 'google', url: string, name: string, file?: File } | null>(null);
+    const [mediaList, setMediaList] = useState<{ type: 'upload' | 'google', url: string, name: string, file?: File }[]>([]);
 
     // Step 2 State
     const [selectedPillar, setSelectedPillar] = useState<string | null>(null);
@@ -57,15 +57,24 @@ export default function StartPost() {
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = e.target.files;
-        if (!files || files.length === 0) return;
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
 
-        setMedia({
-            type: 'upload',
-            url: URL.createObjectURL(files[0]),
-            name: files[0].name,
-            file: files[0]
-        });
+        // Limit to 3 files total combined with existing
+        const availableSlots = 3 - mediaList.length;
+        const filesToAdd = files.slice(0, availableSlots);
+
+        if (filesToAdd.length > 0) {
+            const newMedia = filesToAdd.map(f => ({
+                type: 'upload' as const,
+                url: URL.createObjectURL(f),
+                name: f.name,
+                file: f
+            }));
+            setMediaList(prev => [...prev, ...newMedia]);
+        }
+
+        // Optional: immediately jump to step 2 if they select at least 1 image
         setStep(2);
     };
 
@@ -85,24 +94,26 @@ export default function StartPost() {
     const handleFinish = async () => {
         setIsGenerating(true);
         try {
-            let finalImageUrl = media?.url;
-
-            // Wait for FileReader completely
-            if (media?.file) {
-                finalImageUrl = await new Promise<string>((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => {
-                        const base64data = reader.result as string;
-                        resolve(base64data);
-                    };
-                    reader.onerror = reject;
-                    reader.readAsDataURL(media.file!);
-                });
-            }
+            // Process all media files into an array of Base64 strings (or existing URLs)
+            const resolvedImages = await Promise.all(
+                mediaList.map(async (media) => {
+                    if (media.file) {
+                        return new Promise<string>((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                                resolve(reader.result as string);
+                            };
+                            reader.onerror = reject;
+                            reader.readAsDataURL(media.file!);
+                        });
+                    }
+                    return media.url;
+                })
+            );
 
             const payloadData = {
                 text: customCaption,
-                imageUrl: finalImageUrl,
+                imageUrls: resolvedImages,
                 pillar: selectedPillar
             };
 
@@ -170,18 +181,23 @@ export default function StartPost() {
 
                         <button
                             onClick={handleUploadClick}
-                            className="flex flex-col items-center justify-center p-8 rounded-xl border-2 border-dashed hover:border-primary hover:bg-primary/5 transition-colors gap-4"
+                            disabled={mediaList.length >= 3}
+                            className={cn(
+                                "flex flex-col items-center justify-center p-8 rounded-xl border-2 border-dashed transition-colors gap-4",
+                                mediaList.length >= 3 ? "opacity-50 cursor-not-allowed border-muted bg-muted/10" : "hover:border-primary hover:bg-primary/5"
+                            )}
                         >
                             <div className="p-4 rounded-full bg-green-100 text-green-600">
                                 <Upload className="h-8 w-8" />
                             </div>
                             <div>
                                 <h4 className="font-bold">Upload Local Media</h4>
-                                <p className="text-xs text-muted-foreground mt-1">Select files from your computer or phone</p>
+                                <p className="text-xs text-muted-foreground mt-1">Select up to 3 files (Images or Video)</p>
                             </div>
                         </button>
                         <input
                             type="file"
+                            multiple
                             ref={fileInputRef}
                             onChange={handleFileChange}
                             className="hidden"
@@ -195,19 +211,36 @@ export default function StartPost() {
             {step === 2 && (
                 <div className="rounded-xl border border-border bg-card shadow-sm p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4">
 
-                    <div className="flex items-center gap-4 p-4 rounded-lg bg-muted/50 border">
-                        <div className="h-16 w-16 bg-card rounded border flex items-center justify-center shrink-0">
-                            {media?.type === 'upload' ? (
-                                <img src={media.url} alt="Upload Preview" className="h-full w-full object-cover rounded" />
-                            ) : (
-                                <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                    <div className="flex flex-col gap-3">
+                        <div className="flex justify-between items-center mb-2">
+                            <h3 className="font-bold">Selected Media ({mediaList.length}/3)</h3>
+                            {mediaList.length < 3 && (
+                                <button onClick={() => setStep(1)} className="text-sm text-primary font-medium hover:underline flex items-center gap-1">
+                                    <Upload className="h-4 w-4" /> Add More
+                                </button>
                             )}
                         </div>
-                        <div className="flex-1 overflow-hidden">
-                            <p className="font-medium truncate">{media?.name}</p>
-                            <p className="text-xs text-muted-foreground uppercase">{media?.type} media selected</p>
-                        </div>
-                        <button onClick={() => setStep(1)} className="text-sm text-primary font-medium hover:underline">Change</button>
+                        {mediaList.map((media, idx) => (
+                            <div key={idx} className="flex items-center gap-4 p-4 rounded-lg bg-muted/50 border">
+                                <div className="h-16 w-16 bg-card rounded border flex items-center justify-center shrink-0">
+                                    {media.type === 'upload' ? (
+                                        <img src={media.url} alt={`Upload Preview ${idx + 1}`} className="h-full w-full object-cover rounded" />
+                                    ) : (
+                                        <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                                    )}
+                                </div>
+                                <div className="flex-1 overflow-hidden">
+                                    <p className="font-medium truncate">{media.name}</p>
+                                    <p className="text-xs text-muted-foreground uppercase">{media.type} media selected</p>
+                                </div>
+                                <button
+                                    onClick={() => setMediaList(prev => prev.filter((_, i) => i !== idx))}
+                                    className="text-sm text-destructive font-medium hover:underline px-2"
+                                >
+                                    Remove
+                                </button>
+                            </div>
+                        ))}
                     </div>
 
                     <div className="text-center">

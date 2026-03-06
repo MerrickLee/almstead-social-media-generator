@@ -13,23 +13,36 @@ export async function POST(req: Request) {
     try {
         const payload = await req.json();
 
-        // If the payload contains a base64 image URL from the browser
-        if (payload.imageUrl && payload.imageUrl.startsWith('data:image')) {
-            console.log('Intercepting Base64 string for Cloudinary upload...');
+        // Support multiple images
+        if (payload.imageUrls && Array.isArray(payload.imageUrls)) {
+            console.log(`Intercepting ${payload.imageUrls.length} image(s) for Cloudinary...`);
+
             try {
-                // Upload directly to Cloudinary
-                const uploadResult = await cloudinary.uploader.upload(payload.imageUrl, {
-                    folder: 'almstead_social_drafts',
+                // Upload all Base64 strings concurrently
+                const uploadPromises = payload.imageUrls.map(async (imgString: string) => {
+                    if (imgString && imgString.startsWith('data:image')) {
+                        const uploadResult = await cloudinary.uploader.upload(imgString, {
+                            folder: 'almstead_social_drafts',
+                        });
+                        return uploadResult.secure_url;
+                    }
+                    return imgString; // return as-is if not base64
                 });
 
-                // Replace the heavy base64 string with the light, permanent Cloudinary URL
-                payload.imageUrl = uploadResult.secure_url;
-                console.log('Cloudinary Upload Success:', payload.imageUrl);
+                payload.imageUrls = await Promise.all(uploadPromises);
+                console.log('Cloudinary Upload Success:', payload.imageUrls);
             } catch (uploadError) {
-                console.error("Cloudinary upload failed:", uploadError);
-                // We proceed even if Cloudinary fails, dropping the image so text still arrives
-                payload.imageUrl = "UPLOAD_FAILED";
+                console.error("Cloudinary bulk upload failed:", uploadError);
+                // Fallback gracefully so text content still arrives
+                payload.imageUrls = ["UPLOAD_FAILED"];
             }
+        } // End of multiple image support
+
+        // Map array down to a single string for Zapier simplicity
+        // Check if imageUrls still exists before mapping
+        if (payload.imageUrls && Array.isArray(payload.imageUrls)) {
+            payload.imageUrl = payload.imageUrls.join(', ');
+            delete payload.imageUrls;
         }
 
         console.log("Final payload being sent to Zapier:", payload);
