@@ -8,12 +8,8 @@ export function Header() {
 
     // Create a nice title from the pathname
     const getTitle = () => {
-        if (pathname === '/') return 'Dashboard';
         if (pathname.includes('/science')) return 'Science of Landscapes';
-        if (pathname.includes('/conditions')) return 'Current Conditions';
-        if (pathname.includes('/customers')) return 'Happy Customers';
-        if (pathname.includes('/employees')) return 'Employee Spotlights';
-        if (pathname.includes('/media')) return 'Image Brander';
+        if (pathname === '/') return 'Image Brander';
         if (pathname.includes('/calendar')) return 'Content Calendar';
         if (pathname.includes('/settings')) return 'Settings';
         return 'Social Media Hub';

@@ -84,9 +84,8 @@ export default function StartPost() {
     const handleFinish = async () => {
         setIsGenerating(true);
         try {
-            await fetch('https://hooks.zapier.com/hooks/catch/24716706/ux25i31/', {
+            const response = await fetch('/api/zapier', {
                 method: 'POST',
-                mode: 'no-cors',
                 headers: {
                     'Content-Type': 'application/json'
                 },
@@ -96,8 +95,13 @@ export default function StartPost() {
                     pillar: selectedPillar
                 })
             });
+
+            if (!response.ok) {
+                throw new Error("Failed backend proxy submission");
+            }
+
             alert("Sent for Approval!");
-            router.push('/media');
+            router.push('/');
         } catch (error) {
             console.error(error);
             alert("Failed to submit to Zapier");

@@ -13,8 +13,8 @@ import {
 import { cn } from "@/lib/utils";
 
 const navigation = [
+    { name: 'Image Brander', href: '/', icon: ImageIcon },
     { name: 'Start Post', href: '/composer', icon: PenTool },
-    { name: 'Image Brander', href: '/media', icon: ImageIcon },
 ];
 
 export function Sidebar() {
