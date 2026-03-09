@@ -52,6 +52,9 @@ export default function StartPost() {
     const [generatedOptions, setGeneratedOptions] = useState<string[]>([]);
     const [customCaption, setCustomCaption] = useState<string>("");
 
+    // Success State
+    const [isSuccess, setIsSuccess] = useState(false);
+
     const handleUploadClick = () => {
         fileInputRef.current?.click();
     };
@@ -78,13 +81,59 @@ export default function StartPost() {
         setStep(2);
     };
 
-    const handleGenerate = () => {
+    const handleGenerate = async () => {
         if (!selectedPillar) return;
         setIsGenerating(true);
-        setTimeout(() => {
-            setGeneratedOptions(mockAIGenerations[selectedPillar] || []);
+        try {
+            // Process media for generation
+            const resolvedImages = await Promise.all(
+                mediaList.map(async (media) => {
+                    if (media.file) {
+                        return new Promise<string>((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                                resolve(reader.result as string);
+                            };
+                            reader.onerror = reject;
+                            reader.readAsDataURL(media.file!);
+                        });
+                    }
+                    return media.url;
+                })
+            );
+
+            const pillarName = pillars.find(p => p.id === selectedPillar)?.name || selectedPillar;
+
+            const response = await fetch('/api/caption', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    images: resolvedImages,
+                    pillar: pillarName
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to generate captions.");
+            }
+
+            const data = await response.json();
+
+            if (data.options && Array.isArray(data.options)) {
+                setGeneratedOptions(data.options);
+            } else {
+                throw new Error("Invalid response from caption API");
+            }
+
+        } catch (error) {
+            console.error("Error generating captions:", error);
+            alert("Failed to generate captions. Check your API key or network connection.");
+            setGeneratedOptions(mockAIGenerations[selectedPillar] || []); // Fallback on error
+        } finally {
             setIsGenerating(false);
-        }, 1500);
+        }
     };
 
     const selectOption = (text: string) => {
@@ -112,7 +161,8 @@ export default function StartPost() {
             );
 
             const payloadData = {
-                text: customCaption,
+                // Convert all line breaks to HTML <br /> tags
+                text: customCaption.replace(/\n/g, '<br />'),
                 imageUrls: resolvedImages,
                 pillar: selectedPillar
             };
@@ -131,15 +181,42 @@ export default function StartPost() {
                 throw new Error("Failed backend proxy submission");
             }
 
-            alert("Sent for Approval!");
-            router.push('/');
+            // Show success animation instead of alert
+            setIsSuccess(true);
+            setTimeout(() => {
+                router.push('/');
+            }, 3000);
+
         } catch (error) {
             console.error(error);
             alert("Failed to submit to Zapier");
-        } finally {
-            setIsGenerating(false);
+            setIsGenerating(false); // Only stop generating if error, otherwise keep it loading behind success state
         }
     };
+
+    if (isSuccess) {
+        return (
+            <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/95 backdrop-blur-sm animate-in fade-in duration-500">
+                <div className="flex flex-col items-center justify-center space-y-6 text-center animate-in zoom-in-95 duration-700 delay-150 fill-mode-both">
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping"></div>
+                        <div className="relative bg-primary text-primary-foreground p-6 rounded-full shadow-2xl">
+                            <CheckCircle2 className="w-16 h-16" />
+                        </div>
+                    </div>
+                    <div className="space-y-2 max-w-sm">
+                        <h2 className="text-3xl font-extrabold tracking-tight">Post Sent!</h2>
+                        <p className="text-muted-foreground text-lg">Your post has been successfully submitted for review and approval.</p>
+                    </div>
+                    <div className="mt-8 flex items-center justify-center gap-2 text-primary">
+                        <Leaf className="w-5 h-5 animate-pulse" />
+                        <span className="font-semibold text-sm tracking-widest uppercase animate-pulse">Redirecting to Dashboard</span>
+                        <Leaf className="w-5 h-5 animate-pulse" />
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-8 max-w-4xl mx-auto py-4">
