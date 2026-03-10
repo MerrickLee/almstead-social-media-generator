@@ -5,7 +5,12 @@ import { SidebarLinks } from "./sidebar-links";
 const navigation = [
     { name: 'Image Brander', href: '/', icon: 'Compass' },
     { name: 'Composer', href: '/composer', icon: 'PenTool' },
+];
+
+const adminNavigation = [
     { name: 'Calendar', href: '/calendar', icon: 'Calendar' },
+    { name: 'Settings', href: '/settings', icon: 'Settings' },
+    { name: 'Access Control', href: '/admin', icon: 'ShieldAlert' },
 ];
 
 export async function Sidebar() {
@@ -29,7 +34,7 @@ export async function Sidebar() {
                         {isAdmin && (
                             <div className="mt-8">
                                 <h3 className="px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Admin</h3>
-                                <SidebarLinks items={[{ name: "Access Control", href: "/admin", icon: 'ShieldAlert' }]} />
+                                <SidebarLinks items={adminNavigation} />
                             </div>
                         )}
                     </div>

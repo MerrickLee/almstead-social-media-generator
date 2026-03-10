@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Compass, PenTool, Calendar, ShieldAlert, type LucideIcon } from "lucide-react";
+import { Compass, PenTool, Calendar, ShieldAlert, Settings, type LucideIcon } from "lucide-react";
 
 interface NavItem {
     name: string;
@@ -16,6 +16,7 @@ const iconMap: Record<string, LucideIcon> = {
     PenTool,
     Calendar,
     ShieldAlert,
+    Settings,
 };
 
 export function SidebarLinks({ items }: { items: NavItem[] }) {

@@ -1,5 +1,4 @@
-import { Settings, LogOut } from "lucide-react";
-import Link from "next/link";
+import { LogOut } from "lucide-react";
 import { auth, signOut } from "@/auth";
 
 export default async function Header() {
@@ -34,16 +33,6 @@ export default async function Header() {
                         </form>
                     </div>
                 ) : null}
-
-                <div className="h-6 w-px bg-border mx-1"></div>
-
-                <Link
-                    href="/settings"
-                    className="p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                >
-                    <Settings className="h-5 w-5" />
-                    <span className="sr-only">Settings</span>
-                </Link>
             </div>
         </header>
     );
