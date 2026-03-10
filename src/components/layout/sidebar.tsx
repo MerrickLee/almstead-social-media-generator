@@ -1,12 +1,11 @@
 import React from "react";
-import { Compass, PenTool, Calendar, ShieldAlert } from "lucide-react";
 import { auth } from "@/auth";
 import { SidebarLinks } from "./sidebar-links";
 
 const navigation = [
-    { name: 'Image Brander', href: '/', icon: Compass },
-    { name: 'Composer', href: '/composer', icon: PenTool },
-    { name: 'Calendar', href: '/calendar', icon: Calendar },
+    { name: 'Image Brander', href: '/', icon: 'Compass' },
+    { name: 'Composer', href: '/composer', icon: 'PenTool' },
+    { name: 'Calendar', href: '/calendar', icon: 'Calendar' },
 ];
 
 export async function Sidebar() {
@@ -30,7 +29,7 @@ export async function Sidebar() {
                         {isAdmin && (
                             <div className="mt-8">
                                 <h3 className="px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Admin</h3>
-                                <SidebarLinks items={[{ name: "Access Control", href: "/admin", icon: ShieldAlert }]} />
+                                <SidebarLinks items={[{ name: "Access Control", href: "/admin", icon: 'ShieldAlert' }]} />
                             </div>
                         )}
                     </div>
