@@ -8,9 +8,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         ...authConfig.callbacks,
         async signIn({ user, account, profile }) {
             if (user.email) {
-                // Hardcoded Admin email for now, until we migrate away from local SQLite
-                // to a serverless-friendly database like Vercel Postgres or Supabase.
-                if (user.email.toLowerCase() === 'mlee@almstead.com') {
+                // Temporary hardcoded allowlist until we migrate to a serverless database.
+                const allowedEmails = [
+                    'mlee@almstead.com',
+                    'merricklee@me.com',
+                ];
+                if (allowedEmails.includes(user.email.toLowerCase())) {
                     return true;
                 }
             }
