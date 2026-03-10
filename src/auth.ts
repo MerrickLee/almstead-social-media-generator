@@ -1,5 +1,6 @@
 import NextAuth from "next-auth"
 import { authConfig } from "./auth.config"
+import { isEmailAllowed } from "@/lib/db";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
     ...authConfig,
@@ -8,12 +9,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         ...authConfig.callbacks,
         async signIn({ user, account, profile }) {
             if (user.email) {
-                // Temporary hardcoded allowlist until we migrate to a serverless database.
-                const allowedEmails = [
-                    'mlee@almstead.com',
-                    'merricklee@me.com',
-                ];
-                if (allowedEmails.includes(user.email.toLowerCase())) {
+                const isAllowed = await isEmailAllowed(user.email);
+                if (isAllowed) {
                     return true;
                 }
             }

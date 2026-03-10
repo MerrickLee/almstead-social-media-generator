@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.44.0",
+    "@neondatabase/serverless": "^1.0.2",
     "@radix-ui/react-slot": "^1.2.4",
     "@types/fabric": "^5.3.11",
     "class-variance-authority": "^0.7.1",
@@ -22,8 +23,6 @@
     "openai": "^6.27.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "sqlite": "^5.1.1",
-    "sqlite3": "^5.1.7",
     "tailwind-merge": "^3.5.0",
     "tailwindcss-animate": "^1.0.7",
     "zustand": "^5.0.11"
