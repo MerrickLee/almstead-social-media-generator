@@ -1,27 +1,49 @@
-"use client";
+import { Settings, LogOut } from "lucide-react";
+import Link from "next/link";
+import { auth, signOut } from "@/auth";
 
-import { usePathname } from "next/navigation";
-import { Bell, Search } from "lucide-react";
-
-export function Header() {
-    const pathname = usePathname();
-
-    // Create a nice title from the pathname
-    const getTitle = () => {
-        if (pathname.includes('/science')) return 'Science of Landscapes';
-        if (pathname === '/') return 'Image Brander';
-        if (pathname.includes('/calendar')) return 'Content Calendar';
-        if (pathname.includes('/settings')) return 'Settings';
-        return 'Social Media Hub';
-    };
+export default async function Header() {
+    const session = await auth();
+    const user = session?.user;
 
     return (
-        <header className="flex h-16 shrink-0 items-center gap-x-4 border-b border-border bg-card px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
-            <div className="flex flex-1 items-center justify-between gap-x-4 self-stretch lg:gap-x-6">
-                <h1 className="font-display text-xl font-bold text-foreground">
-                    {getTitle()}
-                </h1>
+        <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-30 flex items-center justify-between px-6">
+            <h2 className="text-xl font-bold tracking-tight text-foreground">Social Media Hub</h2>
 
+            <div className="flex items-center gap-4">
+                {user ? (
+                    <div className="flex items-center gap-3">
+                        <div className="flex flex-col items-end hidden sm:flex">
+                            <span className="text-sm font-semibold">{user.name || "Employee"}</span>
+                            <span className="text-xs text-muted-foreground">{user.email}</span>
+                        </div>
+                        {user.image && (
+                            <img src={user.image} alt="Profile" className="w-8 h-8 rounded-full border border-border" />
+                        )}
+                        <form action={async () => {
+                            "use server";
+                            await signOut({ redirectTo: "/" });
+                        }}>
+                            <button
+                                type="submit"
+                                title="Sign Out"
+                                className="p-2 ml-2 rounded-full hover:bg-muted text-muted-foreground hover:text-destructive transition-colors"
+                            >
+                                <LogOut className="h-5 w-5" />
+                            </button>
+                        </form>
+                    </div>
+                ) : null}
+
+                <div className="h-6 w-px bg-border mx-1"></div>
+
+                <Link
+                    href="/settings"
+                    className="p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                >
+                    <Settings className="h-5 w-5" />
+                    <span className="sr-only">Settings</span>
+                </Link>
             </div>
         </header>
     );
