@@ -1,16 +1,16 @@
 import NextAuth from "next-auth"
 import { authConfig } from "./auth.config"
-import { isEmailAllowed } from "@/lib/db";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
     ...authConfig,
+    trustHost: true,
     callbacks: {
         ...authConfig.callbacks,
         async signIn({ user, account, profile }) {
             if (user.email) {
-                // Only allow login if email matches Admin or is in the Allowlist DB
-                const isAllowed = await isEmailAllowed(user.email);
-                if (isAllowed) {
+                // Hardcoded Admin email for now, until we migrate away from local SQLite
+                // to a serverless-friendly database like Vercel Postgres or Supabase.
+                if (user.email.toLowerCase() === 'mlee@almstead.com') {
                     return true;
                 }
             }
