@@ -47,8 +47,9 @@ export default function StartPost() {
     // Step 2 State
     const [selectedPillar, setSelectedPillar] = useState<string | null>(null);
 
-    // Step 3 State
+    // Step 3 State — cloudinaryUrls holds the uploaded URLs so they can be reused for caption + zapier
     const [isGenerating, setIsGenerating] = useState(false);
+    const [cloudinaryUrls, setCloudinaryUrls] = useState<string[]>([]);
     const [generatedOptions, setGeneratedOptions] = useState<string[]>([]);
     const [customCaption, setCustomCaption] = useState<string>("");
 
@@ -81,56 +82,30 @@ export default function StartPost() {
         setStep(2);
     };
 
-    const handleGenerate = async () => {
+    const handleGenerate = async (uploadedUrls: string[]) => {
         if (!selectedPillar) return;
         setIsGenerating(true);
         try {
-            // Process media for generation
-            const resolvedImages = await Promise.all(
-                mediaList.map(async (media) => {
-                    if (media.file) {
-                        return new Promise<string>((resolve, reject) => {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                                resolve(reader.result as string);
-                            };
-                            reader.onerror = reject;
-                            reader.readAsDataURL(media.file!);
-                        });
-                    }
-                    return media.url;
-                })
-            );
-
             const pillarName = pillars.find(p => p.id === selectedPillar)?.name || selectedPillar;
 
             const response = await fetch('/api/caption', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    images: resolvedImages,
-                    pillar: pillarName
-                })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ images: uploadedUrls, pillar: pillarName })
             });
 
-            if (!response.ok) {
-                throw new Error("Failed to generate captions.");
-            }
+            if (!response.ok) throw new Error("Failed to generate captions.");
 
             const data = await response.json();
-
             if (data.options && Array.isArray(data.options)) {
                 setGeneratedOptions(data.options);
             } else {
                 throw new Error("Invalid response from caption API");
             }
-
         } catch (error) {
             console.error("Error generating captions:", error);
             alert("Failed to generate captions. Check your API key or network connection.");
-            setGeneratedOptions(mockAIGenerations[selectedPillar] || []); // Fallback on error
+            setGeneratedOptions(mockAIGenerations[selectedPillar] || []);
         } finally {
             setIsGenerating(false);
         }
@@ -140,30 +115,47 @@ export default function StartPost() {
         setCustomCaption(text);
     };
 
+    // Upload a single file directly to Cloudinary from the browser
+    const uploadToCloudinary = async (file: File): Promise<string> => {
+        const timestamp = Math.round(Date.now() / 1000);
+        const folder = 'almstead_social_drafts';
+        const paramsToSign = { timestamp, folder };
+
+        // Get a signature from our server (keeps API secret safe)
+        const signRes = await fetch('/api/cloudinary-sign', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ paramsToSign }),
+        });
+        if (!signRes.ok) throw new Error('Failed to get upload signature');
+        const { signature } = await signRes.json();
+
+        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+        const apiKey = process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY;
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('api_key', apiKey!);
+        formData.append('timestamp', String(timestamp));
+        formData.append('folder', folder);
+        formData.append('signature', signature);
+
+        const uploadRes = await fetch(
+            `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
+            { method: 'POST', body: formData }
+        );
+        if (!uploadRes.ok) throw new Error('Cloudinary upload failed');
+        const uploadData = await uploadRes.json();
+        return uploadData.secure_url as string;
+    };
+
     const handleFinish = async () => {
         setIsGenerating(true);
         try {
-            // Process all media files into an array of Base64 strings (or existing URLs)
-            const resolvedImages = await Promise.all(
-                mediaList.map(async (media) => {
-                    if (media.file) {
-                        return new Promise<string>((resolve, reject) => {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                                resolve(reader.result as string);
-                            };
-                            reader.onerror = reject;
-                            reader.readAsDataURL(media.file!);
-                        });
-                    }
-                    return media.url;
-                })
-            );
-
+            // cloudinaryUrls were already uploaded when transitioning to Step 3
             const payloadData = {
-                // Convert all line breaks to HTML <br /> tags
                 text: customCaption.replace(/\n/g, '<br />'),
-                imageUrls: resolvedImages,
+                imageUrls: cloudinaryUrls,
                 pillar: selectedPillar
             };
 
@@ -171,26 +163,19 @@ export default function StartPost() {
 
             const response = await fetch('/api/zapier', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payloadData)
             });
 
-            if (!response.ok) {
-                throw new Error("Failed backend proxy submission");
-            }
+            if (!response.ok) throw new Error("Failed backend proxy submission");
 
-            // Show success animation instead of alert
             setIsSuccess(true);
-            setTimeout(() => {
-                router.push('/');
-            }, 3000);
+            setTimeout(() => { router.push('/'); }, 3000);
 
         } catch (error) {
             console.error(error);
             alert("Failed to submit to Zapier");
-            setIsGenerating(false); // Only stop generating if error, otherwise keep it loading behind success state
+            setIsGenerating(false);
         }
     };
 
@@ -350,10 +335,19 @@ export default function StartPost() {
 
                     <div className="flex justify-end pt-4">
                         <button
-                            disabled={!selectedPillar}
-                            onClick={() => {
+                            disabled={!selectedPillar || isGenerating}
+                            onClick={async () => {
                                 setStep(3);
-                                handleGenerate();
+                                setIsGenerating(true);
+                                // Upload all files to Cloudinary first, then use URLs for both caption + zapier
+                                const urls = await Promise.all(
+                                    mediaList.map(async (media) => {
+                                        if (media.file) return uploadToCloudinary(media.file);
+                                        return media.url;
+                                    })
+                                );
+                                setCloudinaryUrls(urls);
+                                handleGenerate(urls);
                             }}
                             className="inline-flex items-center justify-center rounded-md text-sm font-bold transition-colors bg-primary text-primary-foreground shadow hover:bg-primary/90 h-11 px-8 disabled:opacity-50"
                         >
