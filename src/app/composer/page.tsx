@@ -124,7 +124,10 @@ export default function StartPost() {
                 body: JSON.stringify({ images: uploadedUrls, pillar: pillarName })
             });
 
-            if (!response.ok) throw new Error("Failed to generate captions.");
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || "Failed to generate captions.");
+            }
 
             const data = await response.json();
             if (data.options && Array.isArray(data.options)) {
@@ -132,9 +135,9 @@ export default function StartPost() {
             } else {
                 throw new Error("Invalid response from caption API");
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error generating captions:", error);
-            alert("Failed to generate captions. Check your API key or network connection.");
+            alert(`Caption Generation Error: ${error.message}`);
             setGeneratedOptions(mockAIGenerations[selectedPillar] || []);
         } finally {
             setIsGenerating(false);

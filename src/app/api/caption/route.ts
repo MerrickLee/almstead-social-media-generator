@@ -22,8 +22,8 @@ export async function POST(req: Request) {
         }
 
         // Helper to format images for OpenAI
-        // The images array from the frontend will contain Data URLs like 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ...'
         const imageContentParts = (images || []).map((imgUrl: string) => {
+            console.log('Processing image URL for OpenAI:', imgUrl.substring(0, 100) + '...');
             return {
                 type: "image_url",
                 image_url: {
@@ -47,6 +47,7 @@ export async function POST(req: Request) {
     - Example format: [ "Option 1 text...", "Option 2 text...", "Option 3 text..." ]
     `;
 
+        console.log('Sending request to OpenAI with pillar:', pillar);
         const chatCompletion = await openai.chat.completions.create({
             messages: [
                 {
@@ -62,6 +63,7 @@ export async function POST(req: Request) {
         });
 
         const text = chatCompletion.choices[0].message.content;
+        console.log('OpenAI raw response:', text);
 
         if (!text) {
             throw new Error("No text generated from OpenAI.");
@@ -73,15 +75,17 @@ export async function POST(req: Request) {
         let options = Array.isArray(parsedData) ? parsedData : (parsedData.options || []);
 
         if (!Array.isArray(options) || options.length !== 3) {
-            // Fallback in case the LLM doesn't perfectly follow the array structure
+            console.error('Invalid options structure:', options);
             throw new Error("Failed to generate exactly 3 options.");
         }
 
         return NextResponse.json({ options });
     } catch (error: any) {
         console.error("Caption Generation Error:", error);
+        // Include more details in the response for debugging (safely)
+        const errorMessage = error?.message || "Failed to generate captions.";
         return NextResponse.json(
-            { error: error?.message || "Failed to generate captions." },
+            { error: errorMessage, details: error?.response?.data || null },
             { status: 500 }
         );
     }
