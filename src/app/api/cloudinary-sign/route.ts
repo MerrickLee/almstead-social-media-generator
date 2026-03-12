@@ -10,6 +10,8 @@ cloudinary.config({
 export async function POST(req: Request) {
     try {
         const { paramsToSign } = await req.json();
+        console.log('Generating Cloudinary signature for params:', paramsToSign);
+        console.log('Using Cloud Name:', process.env.CLOUDINARY_CLOUD_NAME);
 
         const signature = cloudinary.utils.api_sign_request(
             paramsToSign,

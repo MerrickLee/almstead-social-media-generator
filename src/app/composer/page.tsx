@@ -40,6 +40,7 @@ export default function StartPost() {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [step, setStep] = useState<number>(1);
+    const [isDragging, setIsDragging] = useState(false);
 
     // Step 1 State
     const [mediaList, setMediaList] = useState<{ type: 'upload' | 'google', url: string, name: string, file?: File }[]>([]);
@@ -60,8 +61,7 @@ export default function StartPost() {
         fileInputRef.current?.click();
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = Array.from(e.target.files || []);
+    const processFiles = (files: File[]) => {
         if (files.length === 0) return;
 
         // Limit to 3 files total combined with existing
@@ -80,6 +80,36 @@ export default function StartPost() {
 
         // Optional: immediately jump to step 2 if they select at least 1 image
         setStep(2);
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files || []);
+        processFiles(files);
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (mediaList.length < 3) {
+            setIsDragging(true);
+        }
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+
+        if (mediaList.length >= 3) return;
+
+        const files = Array.from(e.dataTransfer.files);
+        processFiles(files);
     };
 
     const handleGenerate = async (uploadedUrls: string[]) => {
@@ -144,7 +174,13 @@ export default function StartPost() {
             `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
             { method: 'POST', body: formData }
         );
-        if (!uploadRes.ok) throw new Error('Cloudinary upload failed');
+
+        if (!uploadRes.ok) {
+            const errorData = await uploadRes.json();
+            console.error('Cloudinary upload error details:', errorData);
+            throw new Error(`Cloudinary upload failed: ${errorData.error?.message || uploadRes.statusText}`);
+        }
+
         const uploadData = await uploadRes.json();
         return uploadData.secure_url as string;
     };
@@ -243,10 +279,14 @@ export default function StartPost() {
 
                         <button
                             onClick={handleUploadClick}
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onDrop={handleDrop}
                             disabled={mediaList.length >= 3}
                             className={cn(
-                                "flex flex-col items-center justify-center p-8 rounded-xl border-2 border-dashed transition-colors gap-4",
-                                mediaList.length >= 3 ? "opacity-50 cursor-not-allowed border-muted bg-muted/10" : "hover:border-primary hover:bg-primary/5"
+                                "flex flex-col items-center justify-center p-8 rounded-xl border-2 border-dashed transition-all gap-4 outline-none",
+                                mediaList.length >= 3 ? "opacity-50 cursor-not-allowed border-muted bg-muted/10" :
+                                    isDragging ? "border-primary bg-primary/10 scale-[1.02] shadow-sm" : "border-border hover:border-primary hover:bg-primary/5"
                             )}
                         >
                             <div className="p-4 rounded-full bg-green-100 text-green-600">
@@ -337,17 +377,24 @@ export default function StartPost() {
                         <button
                             disabled={!selectedPillar || isGenerating}
                             onClick={async () => {
-                                setStep(3);
-                                setIsGenerating(true);
-                                // Upload all files to Cloudinary first, then use URLs for both caption + zapier
-                                const urls = await Promise.all(
-                                    mediaList.map(async (media) => {
-                                        if (media.file) return uploadToCloudinary(media.file);
-                                        return media.url;
-                                    })
-                                );
-                                setCloudinaryUrls(urls);
-                                handleGenerate(urls);
+                                try {
+                                    setIsGenerating(true);
+                                    setStep(3);
+                                    // Upload all files to Cloudinary first, then use URLs for both caption + zapier
+                                    const urls = await Promise.all(
+                                        mediaList.map(async (media) => {
+                                            if (media.file) return uploadToCloudinary(media.file);
+                                            return media.url;
+                                        })
+                                    );
+                                    setCloudinaryUrls(urls);
+                                    await handleGenerate(urls);
+                                } catch (err: any) {
+                                    console.error("Transition to Step 3 failed:", err);
+                                    alert(err.message || "Failed to process media or generate post.");
+                                    setStep(2);
+                                    setIsGenerating(false);
+                                }
                             }}
                             className="inline-flex items-center justify-center rounded-md text-sm font-bold transition-colors bg-primary text-primary-foreground shadow hover:bg-primary/90 h-11 px-8 disabled:opacity-50"
                         >
