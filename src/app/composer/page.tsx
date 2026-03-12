@@ -41,6 +41,8 @@ export default function StartPost() {
 
     const [step, setStep] = useState<number>(1);
     const [isDragging, setIsDragging] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
 
     // Step 1 State
     const [mediaList, setMediaList] = useState<{ type: 'upload' | 'google', url: string, name: string, file?: File }[]>([]);
@@ -48,8 +50,7 @@ export default function StartPost() {
     // Step 2 State
     const [selectedPillar, setSelectedPillar] = useState<string | null>(null);
 
-    // Step 3 State — cloudinaryUrls holds the uploaded URLs so they can be reused for caption + zapier
-    const [isGenerating, setIsGenerating] = useState(false);
+    // Step 3 State
     const [cloudinaryUrls, setCloudinaryUrls] = useState<string[]>([]);
     const [generatedOptions, setGeneratedOptions] = useState<string[]>([]);
     const [customCaption, setCustomCaption] = useState<string>("");
@@ -112,6 +113,27 @@ export default function StartPost() {
         processFiles(files);
     };
 
+    const handleMediaUpload = async (): Promise<string[]> => {
+        if (cloudinaryUrls.length > 0) return cloudinaryUrls;
+
+        setIsUploading(true);
+        try {
+            const urls = await Promise.all(
+                mediaList.map(async (media) => {
+                    if (media.file) return uploadToCloudinary(media.file);
+                    return media.url;
+                })
+            );
+            setCloudinaryUrls(urls);
+            return urls;
+        } catch (err: any) {
+            console.error("Media upload failed:", err);
+            throw new Error(`Media Upload Failed: ${err.message}`);
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
     const handleGenerate = async (uploadedUrls: string[]) => {
         if (!selectedPillar) return;
         setIsGenerating(true);
@@ -138,9 +160,19 @@ export default function StartPost() {
         } catch (error: any) {
             console.error("Error generating captions:", error);
             alert(`Caption Generation Error: ${error.message}`);
+            // Use mock as fallback
             setGeneratedOptions(mockAIGenerations[selectedPillar] || []);
         } finally {
             setIsGenerating(false);
+        }
+    };
+
+    const handleRequestAI = async () => {
+        try {
+            const urls = await handleMediaUpload();
+            await handleGenerate(urls);
+        } catch (err: any) {
+            alert(err.message);
         }
     };
 
@@ -191,10 +223,12 @@ export default function StartPost() {
     const handleFinish = async () => {
         setIsGenerating(true);
         try {
-            // cloudinaryUrls were already uploaded when transitioning to Step 3
+            // Ensure media is uploaded if it wasn't done via AI suggestion
+            const uploadedUrls = await handleMediaUpload();
+
             const payloadData = {
                 text: customCaption.replace(/\n/g, '<br />'),
-                imageUrls: cloudinaryUrls,
+                imageUrls: uploadedUrls,
                 pillar: selectedPillar
             };
 
@@ -211,9 +245,9 @@ export default function StartPost() {
             setIsSuccess(true);
             setTimeout(() => { router.push('/'); }, 3000);
 
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            alert("Failed to submit to Zapier");
+            alert(error.message || "Failed to submit post");
             setIsGenerating(false);
         }
     };
@@ -381,27 +415,15 @@ export default function StartPost() {
                             disabled={!selectedPillar || isGenerating}
                             onClick={async () => {
                                 try {
-                                    setIsGenerating(true);
                                     setStep(3);
-                                    // Upload all files to Cloudinary first, then use URLs for both caption + zapier
-                                    const urls = await Promise.all(
-                                        mediaList.map(async (media) => {
-                                            if (media.file) return uploadToCloudinary(media.file);
-                                            return media.url;
-                                        })
-                                    );
-                                    setCloudinaryUrls(urls);
-                                    await handleGenerate(urls);
                                 } catch (err: any) {
                                     console.error("Transition to Step 3 failed:", err);
-                                    alert(err.message || "Failed to process media or generate post.");
-                                    setStep(2);
-                                    setIsGenerating(false);
+                                    alert(err.message || "Failed to proceed to next step.");
                                 }
                             }}
                             className="inline-flex items-center justify-center rounded-md text-sm font-bold transition-colors bg-primary text-primary-foreground shadow hover:bg-primary/90 h-11 px-8 disabled:opacity-50"
                         >
-                            Next: Generate Post <ArrowRight className="ml-2 h-4 w-4" />
+                            Next: Review & Caption <ArrowRight className="ml-2 h-4 w-4" />
                         </button>
                     </div>
                 </div>
@@ -411,58 +433,89 @@ export default function StartPost() {
             {step === 3 && (
                 <div className="rounded-xl border border-border bg-card shadow-sm p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4">
                     <div className="text-center">
-                        <h3 className="text-xl font-bold mb-2">AI Post Generation</h3>
-                        <p className="text-muted-foreground text-sm">Review the generated ideas, select one to customize, or write your own.</p>
+                        <h3 className="text-xl font-bold mb-2">Review & Caption</h3>
+                        <p className="text-muted-foreground text-sm">Write your caption below, or use AI to generate creative variations.</p>
                     </div>
 
-                    {isGenerating ? (
-                        <div className="flex flex-col items-center justify-center p-12 text-center text-muted-foreground space-y-4 rounded-xl bg-muted/20 border border-dashed">
-                            <Wand2 className="h-8 w-8 animate-bounce text-primary" />
-                            <p className="font-medium animate-pulse">Analyzing media and drafting content...</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-6">
-                            <div className="grid md:grid-cols-3 gap-4">
-                                {generatedOptions.map((opt, i) => (
+                    <div className="space-y-6">
+                        {/* AI Suggestions Section */}
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <h4 className="font-bold text-sm">AI Suggestions</h4>
+                                {generatedOptions.length === 0 && !isGenerating && !isUploading && (
                                     <button
-                                        key={i}
-                                        onClick={() => selectOption(opt)}
-                                        className="text-left p-4 rounded-xl border border-border hover:border-primary hover:shadow-md transition-all text-sm flex flex-col items-start gap-2 bg-card"
+                                        onClick={handleRequestAI}
+                                        className="text-xs font-bold text-primary hover:underline flex items-center gap-1.5"
                                     >
-                                        <span className="text-xs font-bold uppercase text-primary mb-1 inline-block">Option {i + 1}</span>
-                                        <span className="line-clamp-6">{opt}</span>
-                                        <span className="text-primary text-xs font-semibold mt-auto pt-2 hover:underline">Use this draft →</span>
+                                        <Sparkles className="h-3.5 w-3.5" /> Get AI Ideas
                                     </button>
-                                ))}
+                                )}
                             </div>
 
-                            <div className="space-y-3 pt-4 border-t">
-                                <label className="font-bold flex items-center justify-between">
-                                    Final Caption
-                                    <span className="text-xs font-normal text-muted-foreground">Edit generated text or write your own</span>
-                                </label>
-                                <textarea
-                                    className="w-full min-h-[150px] p-4 rounded-xl border border-input bg-background resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
-                                    placeholder="Your post caption..."
-                                    value={customCaption}
-                                    onChange={(e) => setCustomCaption(e.target.value)}
-                                />
-                            </div>
-
-                            <div className="flex justify-between items-center pt-4">
-                                <button onClick={() => setStep(2)} className="text-sm text-muted-foreground hover:text-foreground font-medium">
-                                    ← Back
-                                </button>
-
-                                <button
-                                    onClick={handleFinish}
-                                    className="inline-flex items-center justify-center rounded-md text-sm font-bold transition-colors bg-primary text-primary-foreground shadow hover:bg-primary/90 h-11 px-8"
-                                >
-                                    <CheckCircle2 className="mr-2 h-5 w-5" /> Send for Approval
-                                </button>
-                            </div>
+                            {(isUploading || isGenerating) ? (
+                                <div className="flex flex-col items-center justify-center p-8 text-center text-muted-foreground space-y-3 rounded-xl bg-muted/20 border border-dashed">
+                                    <Wand2 className="h-6 w-6 animate-bounce text-primary" />
+                                    <p className="text-sm font-medium animate-pulse">
+                                        {isUploading ? "Uploading media to Cloudinary..." : "Generating creative options..."}
+                                    </p>
+                                </div>
+                            ) : generatedOptions.length > 0 ? (
+                                <div className="grid md:grid-cols-3 gap-4">
+                                    {generatedOptions.map((opt, i) => (
+                                        <button
+                                            key={i}
+                                            onClick={() => selectOption(opt)}
+                                            className="text-left p-4 rounded-xl border border-border hover:border-primary hover:shadow-md transition-all text-xs flex flex-col items-start gap-2 bg-card"
+                                        >
+                                            <span className="text-[10px] font-bold uppercase text-primary mb-1 inline-block">Option {i + 1}</span>
+                                            <span className="line-clamp-6 leading-relaxed">{opt}</span>
+                                            <span className="text-primary text-[10px] font-bold mt-auto pt-2 hover:underline">Use this draft →</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="p-6 rounded-xl bg-muted/10 border border-dashed text-center">
+                                    <p className="text-xs text-muted-foreground">Click "Get AI Ideas" to generate suggestions based on your media and brand pillar.</p>
+                                </div>
+                            )}
                         </div>
-                    )}
+
+                        <div className="space-y-3 pt-4 border-t">
+                            <label className="font-bold flex items-center justify-between text-sm">
+                                Final Caption
+                                <span className="text-[10px] font-normal text-muted-foreground">Edit suggestions or write your own</span>
+                            </label>
+                            <textarea
+                                className="w-full min-h-[150px] p-4 rounded-xl border border-input bg-background resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm text-sm"
+                                placeholder="Your post caption..."
+                                value={customCaption}
+                                onChange={(e) => setCustomCaption(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="flex justify-between items-center pt-4">
+                            <button onClick={() => setStep(2)} className="text-sm text-muted-foreground hover:text-foreground font-medium">
+                                ← Back
+                            </button>
+
+                            <button
+                                onClick={handleFinish}
+                                disabled={isGenerating || isUploading || !customCaption.trim()}
+                                className="inline-flex items-center justify-center rounded-md text-sm font-bold transition-colors bg-primary text-primary-foreground shadow hover:bg-primary/90 h-11 px-8 disabled:opacity-50"
+                            >
+                                {isGenerating || isUploading ? (
+                                    <>
+                                        <div className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
+                                        Processing...
+                                    </>
+                                ) : (
+                                    <>
+                                        <CheckCircle2 className="mr-2 h-5 w-5" /> Send for Approval
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
