@@ -4,10 +4,11 @@ import { SidebarLinks } from "./sidebar-links";
 
 const navigation = [
     { name: 'Image Brander', href: '/', icon: 'Compass' },
-    { name: 'Composer', href: '/composer', icon: 'PenTool' },
+    { name: 'Send to Merrick', href: '/merrick-composer', icon: 'PenTool' },
 ];
 
 const adminNavigation = [
+    { name: 'Composer', href: '/composer', icon: 'PenTool' },
     { name: 'Calendar', href: '/calendar', icon: 'Calendar' },
     { name: 'Settings', href: '/settings', icon: 'Settings' },
     { name: 'Access Control', href: '/admin', icon: 'ShieldAlert' },
@@ -15,7 +16,7 @@ const adminNavigation = [
 
 export async function Sidebar() {
     const session = await auth();
-    const isAdmin = session?.user?.email === "mlee@almstead.com";
+    const isAdmin = session?.user?.role === "admin";
 
     const userAvatar = session?.user?.image;
     const userName = session?.user?.name || "Employee";

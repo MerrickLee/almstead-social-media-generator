@@ -7,8 +7,8 @@ import { ShieldAlert, Trash2, Plus, Mail } from "lucide-react";
 export default async function AdminPage() {
     const session = await auth();
 
-    // STRICT PROTECTION: Only mlee@almstead.com can access this page
-    if (session?.user?.email !== "mlee@almstead.com") {
+    // STRICT PROTECTION: Only admins can access this page
+    if (session?.user?.role !== "admin") {
         redirect("/");
     }
 
@@ -18,9 +18,10 @@ export default async function AdminPage() {
     async function handleAdd(formData: FormData) {
         "use server";
         const email = formData.get("email") as string;
+        const role = formData.get("role") as string || 'editor';
         if (!email) return;
 
-        await addAllowedEmail(email);
+        await addAllowedEmail(email, role);
         revalidatePath("/admin");
     }
 
@@ -49,7 +50,7 @@ export default async function AdminPage() {
                 {/* Add New User Panel */}
                 <div className="bg-card border rounded-xl p-6 shadow-sm h-fit space-y-4">
                     <h3 className="font-semibold text-lg flex items-center gap-2">
-                        <Plus className="w-5 h-5 text-primary" /> Add Employee Email
+                        <Plus className="w-5 h-5 text-primary" /> Add Employee
                     </h3>
                     <form action={handleAdd} className="space-y-4">
                         <div className="space-y-2">
@@ -62,6 +63,17 @@ export default async function AdminPage() {
                                 placeholder="name@example.com"
                                 className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                             />
+                        </div>
+                        <div className="space-y-2">
+                            <label htmlFor="role" className="text-sm font-medium">Role Status</label>
+                            <select
+                                id="role"
+                                name="role"
+                                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                            >
+                                <option value="editor">Editor (Send to Merrick only)</option>
+                                <option value="admin">Admin (All Access)</option>
+                            </select>
                         </div>
                         <button type="submit" className="w-full inline-flex items-center justify-center rounded-md text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">
                             Grant Access
@@ -95,7 +107,7 @@ export default async function AdminPage() {
                                 <div>
                                     <p className="font-medium text-sm">{record.email}</p>
                                     <p className="text-xs text-muted-foreground">
-                                        Added {new Date(record.addedAt).toLocaleDateString()}
+                                        Role: <span className="capitalize font-semibold text-primary">{record.role}</span> • Added {new Date(record.addedAt).toLocaleDateString()}
                                     </p>
                                 </div>
                                 <form action={handleRemove}>
