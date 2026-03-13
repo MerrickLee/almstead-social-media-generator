@@ -27,6 +27,58 @@ async function ensureTable() {
         console.log("Adding role column to allowlist table...");
         await sql`ALTER TABLE allowlist ADD COLUMN role TEXT NOT NULL DEFAULT 'editor'`;
     }
+
+    // Create posts table
+    await sql`
+        CREATE TABLE IF NOT EXISTS posts (
+            id SERIAL PRIMARY KEY,
+            text TEXT NOT NULL,
+            image_urls TEXT[] NOT NULL,
+            pillar TEXT,
+            author_email TEXT NOT NULL,
+            author_name TEXT,
+            workflow TEXT NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    `;
+}
+
+export interface Post {
+    id: number;
+    text: string;
+    image_urls: string[];
+    pillar: string | null;
+    author_email: string;
+    author_name: string | null;
+    workflow: string;
+    created_at: string;
+}
+
+// Helper: Save a new post
+export async function savePost(post: Omit<Post, 'id' | 'created_at'>): Promise<void> {
+    const sql = getDb();
+    await ensureTable();
+    await sql`
+        INSERT INTO posts (text, image_urls, pillar, author_email, author_name, workflow)
+        VALUES (${post.text}, ${post.image_urls}, ${post.pillar}, ${post.author_email}, ${post.author_name}, ${post.workflow})
+    `;
+}
+
+// Helper: Get posts for a specific month
+export async function getPostsByMonth(year: number, month: number): Promise<Post[]> {
+    const sql = getDb();
+    await ensureTable();
+    // month is 1-indexed (1-12)
+    const startDate = new Date(year, month - 1, 1).toISOString();
+    const endDate = new Date(year, month, 1).toISOString();
+
+    const rows = await sql`
+        SELECT id, text, image_urls, pillar, author_email, author_name, workflow, created_at 
+        FROM posts 
+        WHERE created_at >= ${startDate} AND created_at < ${endDate}
+        ORDER BY created_at ASC
+    `;
+    return rows as Post[];
 }
 
 // Helper: Check if an email is permitted to sign in

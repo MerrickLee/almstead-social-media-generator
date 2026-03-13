@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server';
+import { savePost } from '@/lib/db';
+import { auth } from '@/auth';
 
 export async function POST(req: Request) {
     try {
+        const session = await auth();
         const payload = await req.json();
+
+        // Keep original array for DB storage before joining for Zapier
+        const originalImageUrls = [...(payload.imageUrls || [])];
 
         // imageUrls should now be an array of Cloudinary URLs (already uploaded by the client)
         // Join them into a single string for Zapier simplicity
@@ -26,6 +32,16 @@ export async function POST(req: Request) {
         if (!response.ok) {
             throw new Error(`Zapier responded with status: ${response.status}`);
         }
+
+        // Log to database
+        await savePost({
+            text: payload.text || "",
+            image_urls: originalImageUrls,
+            pillar: payload.pillar || null,
+            author_email: session?.user?.email || "unknown",
+            author_name: session?.user?.name || null,
+            workflow: "merrick"
+        });
 
         return NextResponse.json({ success: true, cloudinaryUrl: payload.imageUrl });
     } catch (error) {
